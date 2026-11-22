@@ -1,42 +1,41 @@
-import { useEffect, useState } from 'react'
-import { apiUrl } from './api'
+import { useCallback, useEffect, useState } from 'react';
+import { AccountForm } from './features/accounts/AccountForm';
+import { AccountTree } from './features/accounts/AccountTree';
+import { getTree, type AccountNode } from './features/accounts/api';
 
-type Estado =
-  | { tipo: 'cargando' }
-  | { tipo: 'ok'; mensaje: string }
-  | { tipo: 'error'; mensaje: string }
+export default function App() {
+  const [nodes, setNodes] = useState<AccountNode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-function App() {
-  const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' })
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setNodes(await getTree());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error inesperado');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetch(apiUrl('/'))
-      .then((respuesta) => {
-        if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`)
-        return respuesta.text()
-      })
-      .then((mensaje) => setEstado({ tipo: 'ok', mensaje }))
-      .catch((error: Error) => setEstado({ tipo: 'error', mensaje: error.message }))
-  }, [])
+    load();
+  }, [load]);
 
   return (
-    <main>
-      <h1>Arranque de la prueba técnica</h1>
-      <p>
-        Esta pantalla existe solo para comprobar que el frontend le llega a la API.
-        Bórrala y construye lo tuyo.
-      </p>
-
-      {estado.tipo === 'cargando' && <p>Consultando la API...</p>}
-      {estado.tipo === 'ok' && <p>La API respondió: {estado.mensaje}</p>}
-      {estado.tipo === 'error' && (
-        <p>
-          No se pudo hablar con la API ({estado.mensaje}). Revisa que esté
-          corriendo en {apiUrl('')}.
+    <main style={{ maxWidth: 720, margin: '2rem auto', fontFamily: 'sans-serif' }}>
+      <h1>Catálogo de cuentas</h1>
+      <AccountForm onCreated={load} />
+      <h2>Árbol</h2>
+      {loading && <p>Cargando catálogo…</p>}
+      {error && (
+        <p className="error">
+          {error} <button onClick={load}>Reintentar</button>
         </p>
       )}
+      {!loading && !error && <AccountTree nodes={nodes} onChanged={load} />}
     </main>
-  )
+  );
 }
-
-export default App
